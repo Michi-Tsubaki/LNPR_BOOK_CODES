@@ -76,4 +76,29 @@ print("math.sqrt(sampling_var)",stddev1)
 print("math.sqrt(unbiased_var)",stddev2)
 print("math.sqrt",pandas_stddev)
 
+
 #6. 確率分布
+print("------")
+print("確率分布")
+##頻度をデータフレームにする
+freqs = pd.DataFrame(data["lidar"].value_counts())
+print(freqs.transpose()) #横向きに出力する
+##確率の列を追加する
+freqs["probs"] = freqs/len(data["lidar"]) #freqs["lidar"]/len(data["lidar"])はダメだった
+print(freqs.transpose()) #横向きに出力する
+##確率の和が1になることの確認
+print("確率の和は",sum(freqs["probs"]))
+
+##freqsの描画(度数分布表を並べ替える)
+freqs["probs"].sort_index().plot.bar()
+plt.show()
+
+
+#7. 確率分布を用いたシミュレーション
+def drawing(): #関数としてサブルーチン化
+    return freqs.sample(n=1, weights="probs").index[0] #1個とりだす．probの確率に応じてとる． index[0]でセンサの値を取得する
+ret = drawing()
+print("ドローの結果は",ret)
+
+#2.3 確率モデル
+#ガウス分布の当てはめ
