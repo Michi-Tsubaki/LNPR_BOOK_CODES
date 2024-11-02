@@ -2,8 +2,7 @@
 
 #詳解確率ロボティクス第3章
 import matplotlib
-matplotlib.use('nbagg')  # Jupyter Notebookでのアニメーション表示用
-#matplotlib.use('TkAgg')
+matplotlib.use('TkAgg')
 import matplotlib.animation as anm
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
@@ -15,9 +14,11 @@ pi = math.pi
 
 #Define World Coordination.
 class World:
-    def __init__(self, debug=False):
+    def __init__(self, time_span, time_interval, debug=False):
         self.objects = []  # ロボットのオブジェクトを格納するリスト
         self.debug = debug  # デバッグ用のフラグ
+        self.time_span = time_span
+        self.time_interval = time_interval
 
     def append(self, obj):
         self.objects.append(obj)  # オブジェクトをリストに追加
@@ -37,30 +38,28 @@ class World:
                 self.one_step(i, elems, ax)  # デバッグ時はアニメーションを表示
         else:
             # アニメーションを設定し、動画として保存
-            self.ani = anm.FuncAnimation(fig, self.one_step, fargs=(elems, ax), frames=10, interval=1000, repeat=False)
+            self.ani = anm.FuncAnimation(fig, self.one_step, fargs=(elems, ax),
+                                         frames=int(self.time_span/self.time_interval)+1,
+                                         interval=int(self.time_interval*1000), repeat=False)
             self.ani.save('ideal_robot_ani.gif', writer='pillow')  # Use Pillow instead
-            plt.show()  # プロットを表示
+            #plt.show()  # プロットを表示
 
     def one_step(self, i, elems, ax):
-        # 描画要素をクリア
-        while elems:
-            elems.pop().remove()
-        # 現在の時刻を表示
-        elems.append(ax.text(-4.4, 4.5, "t=" + str(i), fontsize=10))
+        while elems: elems.pop().remove() #clear all
+        elems.append(ax.text(-4.4, 4.5, "t=" + str(i), fontsize=10)) #put current time stamp
         for obj in self.objects:
             obj.draw(ax, elems)
-            if hasattr(obj, "one_step"):
-                obj.one_step(1.0)
+            if hasattr(obj, "one_step"): obj.one_step(1.0)
 
 #Define Robot Class
 class IdealRobot:
     def __init__(self, pose, agent=None, color="black"):
         self.pose = pose  # ロボットの位置と向き
         self.r = 0.2  # ロボットの半径
+        self.color = color  #Robot's color.
         self.agent = agent
         self.poses = [pose] #For drwaing trajectory
-        self.color = color  #Robot's color.
-
+        
     @classmethod
     def state_transition(cls, nu, omega, time, pose):
         t0 = pose[2] #theta
@@ -86,7 +85,7 @@ class IdealRobot:
         
 
 class Agent:
-    def __init__(self, nu, omega):
+    def __init__(self, nu = 0, omega = 0):
         self.nu = nu
         self.omega = omega
 
@@ -94,12 +93,12 @@ class Agent:
         return self.nu, self.omega
 
 # 世界座標系の描画
-world = World()  # 世界オブジェクトを生成
+world = World(10, 1)  # 世界オブジェクトを生成
 straight = Agent(0.2, 0.0)
 circling = Agent(0.2, 19.9/180*math.pi) #speed: 0.2mps, angle_speed: 10 dps
 robot1 = IdealRobot(np.array([2, 3, pi/6]).T, straight)  # ロボット1を生成
 robot2 = IdealRobot(np.array([-2, -1, pi/6 * 5]).T, circling,"red")  # ロボット2を生成
-robot3 = IdealRobot(np.array([0, 0, 0]).T, "blue")
+robot3 = IdealRobot(np.array([0, 0, 0]).T, Agent(), "blue")
 world.append(robot1)
 world.append(robot2)
 world.append(robot3)
