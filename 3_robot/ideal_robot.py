@@ -2,7 +2,7 @@
 
 #詳解確率ロボティクス第3章
 import matplotlib
-matplotlib.use('TkAgg')
+matplotlib.use('TkAgg') #not using nbagg because it is for jupyternotebook
 import matplotlib.animation as anm
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
@@ -54,8 +54,8 @@ class World:
 #Define Robot Class
 class IdealRobot:
     def __init__(self, pose, agent=None, color="black"):
-        self.pose = pose  # ロボットの位置と向き
-        self.r = 0.2  # ロボットの半径
+        self.pose = pose  #Robot's Position and angle = State
+        self.r = 0.2  #Robot's Radius
         self.color = color  #Robot's color.
         self.agent = agent
         self.poses = [pose] #For drwaing trajectory
@@ -92,18 +92,47 @@ class Agent:
     def decision(self, observation = None):
         return self.nu, self.omega
 
-# 世界座標系の描画
-world = World(10, 1)  # 世界オブジェクトを生成
-straight = Agent(0.2, 0.0)
-circling = Agent(0.2, 19.9/180*math.pi) #speed: 0.2mps, angle_speed: 10 dps
-robot1 = IdealRobot(np.array([2, 3, pi/6]).T, straight)  # ロボット1を生成
-robot2 = IdealRobot(np.array([-2, -1, pi/6 * 5]).T, circling,"red")  # ロボット2を生成
-robot3 = IdealRobot(np.array([0, 0, 0]).T, Agent(), "blue")
-world.append(robot1)
-world.append(robot2)
-world.append(robot3)
-world.draw()
+class Landmark:
+    def __init__(self, x, y):
+        self.pos = np.array([x, y]).T
+        self.id = None
 
-result = subprocess.run(['python3', './ideal_robot_viewer.py'], capture_output=True, text=True)
-if result.returncode != 0:
-    print("Error:", result.stderr)
+    def draw(self, ax, elems):
+        c = ax.scatter(self.pos[0], self.pos[1], s=100, marker="*", label="landmark", color="orange")
+        elems.append(c)
+        elems.append(ax.text(self.pos[0], self.pos[1], "id:" + str(self.id), fontsize=10))
+
+class Map:
+    def __init__(self):
+        self.landmarks = []
+
+    def append_landmark(self, landmark):
+        landmark.id = len(self.landmarks)
+        self.landmarks.append(landmark)
+
+    def draw(self, ax, elems):
+        for im in self.landmarks:
+            im.draw(ax, elems)
+
+            
+# 世界座標系の描画
+if __name__ == '__main__':
+    world = World(10, 0.1)  # 世界オブジェクトを生成
+    m = Map()
+    m.append_landmark(Landmark(2,-2))
+    m.append_landmark(Landmark(-1,-3))
+    m.append_landmark(Landmark(3,3))
+    world.append(m)
+
+    straight = Agent(0.2, 0.0)
+    circling = Agent(0.2, 19.9/180*math.pi) #speed: 0.2mps, angle_speed: 10 dps
+    robot1 = IdealRobot(np.array([2, 3, pi/6]).T, straight)  # ロボット1を生成
+    robot2 = IdealRobot(np.array([-2, -1, pi/6 * 5]).T, circling,"red")  # ロボット2を生成
+    robot3 = IdealRobot(np.array([0, 0, 0]).T, Agent(), "blue")
+    world.append(robot1)
+    world.append(robot2)
+    world.append(robot3)
+    world.draw()
+    result = subprocess.run(['python3', './ideal_robot_viewer.py'], capture_output=True, text=True)
+    if result.returncode != 0:
+        print("Error:", result.stderr)
