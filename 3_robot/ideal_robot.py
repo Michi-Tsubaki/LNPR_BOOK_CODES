@@ -12,7 +12,7 @@ import subprocess
 
 pi = math.pi 
 
-# 世界座標系のクラスを定義する
+#Define World Coordination.
 class World:
     def __init__(self, debug=False):
         self.objects = []  # ロボットのオブジェクトを格納するリスト
@@ -37,8 +37,7 @@ class World:
         else:
             # アニメーションを設定し、動画として保存
             self.ani = anm.FuncAnimation(fig, self.one_step, fargs=(elems, ax), frames=10, interval=1000, repeat=False)
-            #self.ani.save('animation.mp4', writer='ffmpeg')  # 動画を保存
-            self.ani.save('animation.gif', writer='imagemagick')  # GIF形式で保存
+            self.ani.save('ideal_robot_ani.gif', writer='imagemagick')  # GIF形式で保存
             plt.show()  # プロットを表示
 
     def one_step(self, i, elems, ax):
@@ -48,29 +47,58 @@ class World:
         # 現在の時刻を表示
         elems.append(ax.text(-4.4, 4.5, "t=" + str(i), fontsize=10))
         for obj in self.objects:
-            obj.draw(ax, elems)  # 各オブジェクトを描画
+            obj.draw(ax, elems)
+            if hasattr(obj, "one_step"):
+                obj.one_step(1.0)
 
-# ロボットのクラスを定義する
+#Define Robot Class
 class IdealRobot:
-    def __init__(self, pose, color="black"):
+    def __init__(self, pose, agent=None, color="black"):
         self.pose = pose  # ロボットの位置と向き
         self.r = 0.2  # ロボットの半径
-        self.color = color  # ロボットの色
+        self.agent = agent
+        self.poses = [pose] #For drwaing trajectory
+        self.color = color  #Robot's color.
+
+    @classmethod
+    def state_transition(cls, nu, omega, time, pose):
+        t0 = pose[2] #theta
+        if math.fabs(omega) < 1e-10: ##where omega is very close to zero.
+            return pose + np.array([nu*math.cos(t0), nu*math.sin(t0), omega]) *time
+        else:
+            return pose + np.array([nu/omega*(math.sin(t0+omega*time)-math.sin(t0)), nu/omega*(-math.cos(t0+omega*time)+math.cos(t0)), omega*time])
 
     def draw(self, ax, elems):
-        # ロボットの位置と向きを取得
-        x, y, theta = self.pose
+        x, y, theta = self.pose #get position from self. 
         xn = x + self.r * math.cos(theta)  # 向きに応じたX座標
         yn = y + self.r * math.sin(theta)  # 向きに応じたY座標
         elems.append(ax.plot([x, xn], [y, yn], color=self.color)[0])  # 向きを示す線を描画
         c = patches.Circle(xy=(x, y), radius=self.r, fill=False, color=self.color)  # ロボットの円を作成
         elems.append(ax.add_patch(c))  # 円をプロットに追加
+        self.poses.append(self.pose) #For drawing trajectory
+        elems += ax.plot([e[0] for e in self.poses], [e[1] for e in self.poses], linewidth=0.5, color="black")
+
+    def one_step(self, time_interval):
+        if not self.agent: return
+        nu, omega = self.agent.decision()
+        self.pose = self.state_transition(nu, omega, time_interval, self.pose)
+        
+
+class Agent:
+    def __init__(self, nu, omega):
+        self.nu = nu
+        self.onega = omega
+
+    def decision(self, observation = None):
+        return self.nu, self.omega
 
 # 世界座標系の描画
 world = World()  # 世界オブジェクトを生成
 robot1 = IdealRobot(np.array([2, 3, pi/6]).T)  # ロボット1を生成
 robot2 = IdealRobot(np.array([-2, -1, pi/6 * 5]).T, "red")  # ロボット2を生成
+robot3 = IdealRobot(np.array([0, 0, 0]).T, "blue") #Agent not given 
 world.append(robot1)  # 世界にロボット1を追加
 world.append(robot2)  # 世界にロボット2を追加
+world.append(robot3)
 world.draw()  # 世界を描画
-subprocess.run(['python3', './viewer.py'])
+subprocess.run(['python3', './ideal_robot_viewer.py'])

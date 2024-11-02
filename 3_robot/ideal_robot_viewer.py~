@@ -5,7 +5,7 @@ import cv2
 import numpy as np
 
 # GIFファイルの読み込み
-gif_path = 'animation.gif'
+gif_path = 'ideal_robot_ani.gif'
 img = Image.open(gif_path)
 
 # フレームをリストに保存
