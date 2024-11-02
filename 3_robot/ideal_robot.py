@@ -16,12 +16,12 @@ pi = math.pi
 class World:
     def __init__(self, time_span, time_interval, debug=False):
         self.objects = []  # ロボットのオブジェクトを格納するリスト
-        self.debug = debug  # デバッグ用のフラグ
+        self.debug = debug  #Flag for debug
         self.time_span = time_span
         self.time_interval = time_interval
 
     def append(self, obj):
-        self.objects.append(obj)  # オブジェクトをリストに追加
+        self.objects.append(obj)
 
     def draw(self):
         fig = plt.figure(figsize=(8, 8))  # 図のサイズを設定
@@ -53,12 +53,13 @@ class World:
 
 #Define Robot Class
 class IdealRobot:
-    def __init__(self, pose, agent=None, color="black"):
+    def __init__(self, pose, agent=None, sensor=None, color="black"):
         self.pose = pose  #Robot's Position and angle = State
         self.r = 0.2  #Robot's Radius
         self.color = color  #Robot's color.
         self.agent = agent
         self.poses = [pose] #For drwaing trajectory
+        self.sensor = sensor
         
     @classmethod
     def state_transition(cls, nu, omega, time, pose):
@@ -77,10 +78,13 @@ class IdealRobot:
         elems.append(ax.add_patch(c))  # 円をプロットに追加
         self.poses.append(self.pose)  #For drawing trajectory
         elems += ax.plot([e[0] for e in self.poses], [e[1] for e in self.poses], linewidth=0.5, color="black")
+        if self.sensor and len(self.poses)>1:
+            self.sensor.draw(ax, elems, self.poses[-2])
 
     def one_step(self, time_interval):
         if not self.agent: return
-        nu, omega = self.agent.decision()
+        obs = self.sensor.data(self.pose) if self.sensor else None
+        nu, omega = self.agent.decision(obs)
         self.pose = self.state_transition(nu, omega, time_interval, self.pose)
         
 
@@ -114,6 +118,49 @@ class Map:
         for im in self.landmarks:
             im.draw(ax, elems)
 
+
+##Class for Observation
+class IdealCamera:
+    def __init__(self, env_map,
+                 distance_range=(0.5,100),
+                 direction_range=(-math.pi/3, math.pi/3)):
+        self.map = env_map
+        self.lastdata = []
+        self.distance_range = distance_range
+        self.direction_range = direction_range
+
+    def visible(self, polarpos):
+        if polarpos is None:
+            return False
+
+        return self.distance_range[0] <= polarpos[0] <= self.distance_range[1] and self.direction_range[0] <= polarpos[1] <= self.direction_range[1]
+
+    def data(self, cam_pose):
+        observed = []
+        for im in self.map.landmarks:
+            p = self.observation_function(cam_pose, im.pos)
+            if self.visible(p):
+                 observed.append((p, im.id))
+        self.lastdata = observed
+        return observed
+
+    @classmethod
+    def observation_function(cls, cam_pose, obj_pos):
+        diff = obj_pos -cam_pose[0:2]
+        phi = math.atan2(diff[1],diff[0]) - cam_pose[2]
+        while phi >= np.pi:
+            phi -= 2*np.pi
+        while phi < np.pi:
+            phi += 2*np.pi
+        return np.array([np.hypot(*diff), phi]).T
+
+    def draw(self, ax, elems, cam_pose):
+        for im in self.lastdata:
+            x,y,theta = cam_pose
+            distance, direction = im[0] #fixed by ChatGPT
+            lx = x + distance * math.cos(direction + theta)
+            ly = y + distance * math.sin(direction + theta)
+            elems += ax.plot([x,lx],[y,ly],color="pink")
             
 # 世界座標系の描画
 if __name__ == '__main__':
@@ -126,12 +173,10 @@ if __name__ == '__main__':
 
     straight = Agent(0.2, 0.0)
     circling = Agent(0.2, 19.9/180*math.pi) #speed: 0.2mps, angle_speed: 10 dps
-    robot1 = IdealRobot(np.array([2, 3, pi/6]).T, straight)  # ロボット1を生成
-    robot2 = IdealRobot(np.array([-2, -1, pi/6 * 5]).T, circling,"red")  # ロボット2を生成
-    robot3 = IdealRobot(np.array([0, 0, 0]).T, Agent(), "blue")
+    robot1 = IdealRobot(np.array([2, 3, pi/6]).T, sensor=IdealCamera(m), agent=straight, color="blue")
+    robot2 = IdealRobot(np.array([-2, -1, pi/6 * 5]).T, sensor=IdealCamera(m), agent=circling, color="red")
     world.append(robot1)
     world.append(robot2)
-    world.append(robot3)
     world.draw()
     result = subprocess.run(['python3', './ideal_robot_viewer.py'], capture_output=True, text=True)
     if result.returncode != 0:
