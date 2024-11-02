@@ -3,6 +3,7 @@
 #詳解確率ロボティクス第3章
 import matplotlib
 matplotlib.use('nbagg')  # Jupyter Notebookでのアニメーション表示用
+#matplotlib.use('TkAgg')
 import matplotlib.animation as anm
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
@@ -37,7 +38,7 @@ class World:
         else:
             # アニメーションを設定し、動画として保存
             self.ani = anm.FuncAnimation(fig, self.one_step, fargs=(elems, ax), frames=10, interval=1000, repeat=False)
-            self.ani.save('ideal_robot_ani.gif', writer='imagemagick')  # GIF形式で保存
+            self.ani.save('ideal_robot_ani.gif', writer='pillow')  # Use Pillow instead
             plt.show()  # プロットを表示
 
     def one_step(self, i, elems, ax):
@@ -75,7 +76,7 @@ class IdealRobot:
         elems.append(ax.plot([x, xn], [y, yn], color=self.color)[0])  # 向きを示す線を描画
         c = patches.Circle(xy=(x, y), radius=self.r, fill=False, color=self.color)  # ロボットの円を作成
         elems.append(ax.add_patch(c))  # 円をプロットに追加
-        self.poses.append(self.pose) #For drawing trajectory
+        self.poses.append(self.pose)  #For drawing trajectory
         elems += ax.plot([e[0] for e in self.poses], [e[1] for e in self.poses], linewidth=0.5, color="black")
 
     def one_step(self, time_interval):
@@ -87,18 +88,23 @@ class IdealRobot:
 class Agent:
     def __init__(self, nu, omega):
         self.nu = nu
-        self.onega = omega
+        self.omega = omega
 
     def decision(self, observation = None):
         return self.nu, self.omega
 
 # 世界座標系の描画
 world = World()  # 世界オブジェクトを生成
-robot1 = IdealRobot(np.array([2, 3, pi/6]).T)  # ロボット1を生成
-robot2 = IdealRobot(np.array([-2, -1, pi/6 * 5]).T, "red")  # ロボット2を生成
-robot3 = IdealRobot(np.array([0, 0, 0]).T, "blue") #Agent not given 
-world.append(robot1)  # 世界にロボット1を追加
-world.append(robot2)  # 世界にロボット2を追加
+straight = Agent(0.2, 0.0)
+circling = Agent(0.2, 19.9/180*math.pi) #speed: 0.2mps, angle_speed: 10 dps
+robot1 = IdealRobot(np.array([2, 3, pi/6]).T, straight)  # ロボット1を生成
+robot2 = IdealRobot(np.array([-2, -1, pi/6 * 5]).T, circling,"red")  # ロボット2を生成
+robot3 = IdealRobot(np.array([0, 0, 0]).T, "blue")
+world.append(robot1)
+world.append(robot2)
 world.append(robot3)
-world.draw()  # 世界を描画
-subprocess.run(['python3', './ideal_robot_viewer.py'])
+world.draw()
+
+result = subprocess.run(['python3', './ideal_robot_viewer.py'], capture_output=True, text=True)
+if result.returncode != 0:
+    print("Error:", result.stderr)
